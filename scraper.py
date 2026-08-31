@@ -1,6 +1,13 @@
 import requests
 import json
 
+# Cabeçalhos para evitar o bloqueio 403 do Mercado Libre
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+    "Accept-Language": "es-AR,es;q=0.9,en-US;q=0.8,en;q=0.7"
+}
+
 TERMOS_EXCLUSAO = [
     "sin ascensor", "acceso por escalera", "primer piso por escalera",
     "no acepta mascotas", "sin mascotas", "alquiler temporal",
@@ -18,7 +25,7 @@ def extrair_mercado_libre(bairro="palermo", limite=50):
     url = f"https://api.mercadolibre.com/sites/MLA/search?category=MLA1459&q={bairro}%20buenos%20aires&limit={limite}"
     
     try:
-        res = requests.get(url, timeout=15)
+        res = requests.get(url, headers=HEADERS, timeout=15)
         if res.status_code == 200:
             for item in res.json().get("results", []):
                 if item.get("currency_id") != "USD": 
