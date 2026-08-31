@@ -1,12 +1,9 @@
 import requests
 import json
+import os
 
-# Cabeçalhos para evitar o bloqueio 403 do Mercado Libre
-HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-    "Accept-Language": "es-AR,es;q=0.9,en-US;q=0.8,en;q=0.7"
-}
+# Puxa a chave gratuita que você já configurou no GitHub
+API_KEY = os.environ.get("SCRAPER_API_KEY")
 
 TERMOS_EXCLUSAO = [
     "sin ascensor", "acceso por escalera", "primer piso por escalera",
@@ -16,8 +13,7 @@ TERMOS_EXCLUSAO = [
 ]
 
 def passou_no_filtro(texto):
-    if not texto: 
-        return True
+    if not texto: return True
     return not any(termo in texto.lower() for termo in TERMOS_EXCLUSAO)
 
 def extrair_mercado_libre(bairro="palermo", limite=50):
@@ -25,23 +21,18 @@ def extrair_mercado_libre(bairro="palermo", limite=50):
     url = f"https://api.mercadolibre.com/sites/MLA/search?category=MLA1459&q={bairro}%20buenos%20aires&limit={limite}"
     
     try:
-        res = requests.get(url, headers=HEADERS, timeout=15)
+        # AQUI ESTÁ A SOLUÇÃO DEFINITIVA: O Mercado Libre agora usa o disfarce (ScraperAPI)
+        url_busca = f"http://api.scraperapi.com?api_key={API_KEY}&url={url}" if API_KEY else url
+        res = requests.get(url_busca, timeout=25)
+        
         if res.status_code == 200:
             for item in res.json().get("results", []):
-                if item.get("currency_id") != "USD": 
-                    continue
-                    
+                if item.get("currency_id") != "USD": continue
                 titulo = item.get("title", "")
-                if not passou_no_filtro(titulo): 
-                    continue
+                if not passou_no_filtro(titulo): continue
 
-                metragem = 0
-                for attr in item.get("attributes", []):
-                    if attr.get("id") == "TOTAL_AREA":
-                        metragem = attr.get("value_struct", {}).get("number", 0)
-
-                if metragem <= 0: 
-                    continue
+                metragem = next((a.get("value_struct", {}).get("number", 0) for a in item.get("attributes", []) if a.get("id") == "TOTAL_AREA"), 0)
+                if metragem <= 0: continue
 
                 preco = item.get("price", 0)
                 imoveis.append({
@@ -67,20 +58,16 @@ def executar_varredura():
     base_geral = []
     
     for b in bairros:
-        print(f"Buscando ofertas reais em {b.capitalize()}...")
+        print(f"Buscando ofertas com proxy em {b.capitalize()}...")
         base_geral.extend(extrair_mercado_libre(b, limite=50))
-
-    print(f"Total de imóveis capturados: {len(base_geral)}")
 
     if base_geral:
         base_unica = {item['link']: item for item in base_geral}.values()
-        lista_final = list(base_unica)
-        
         with open("dados_imoveis.json", "w", encoding="utf-8") as f:
-            json.dump(lista_final, f, ensure_ascii=False, indent=4)
-        print(f"Sucesso: 'dados_imoveis.json' criado com {len(lista_final)} ofertas reais.")
+            json.dump(list(base_unica), f, ensure_ascii=False, indent=4)
+        print(f"Sucesso! {len(base_unica)} imóveis capturados com a ScraperAPI.")
     else:
-        raise Exception("Nenhum imóvel foi capturado pela API. O robô foi interrompido.")
+        raise Exception("Nenhum imóvel foi capturado. O robô foi interrompido.")
 
 if __name__ == "__main__":
     executar_varredura()
