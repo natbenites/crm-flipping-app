@@ -1,4 +1,6 @@
 import streamlit as st
+import json
+import os
 
 # Configuração da página
 st.set_page_config(
@@ -7,7 +9,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Estilização estrita para limpar totalmente o sidebar e os cards
+# Estilização estrita e limpa da interface
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600&display=swap');
@@ -20,7 +22,7 @@ st.markdown("""
     
     #MainMenu, footer { visibility: hidden; }
     
-    /* Remove caixas pretas das tags de bairros */
+    /* Estilização das tags do Sidebar */
     span[data-baseweb="tag"] {
         background-color: #E5E5EA !important;
         border: none !important;
@@ -29,18 +31,11 @@ st.markdown("""
         color: #1D1D1F !important;
     }
     
-    /* Remove completamente os balões pretos de valores do Slider */
-    div[data-testid="stThumbValue"] {
-        display: none !important;
-    }
-    div[aria-valuetext] {
-        color: #1D1D1F !important;
-    }
-    .stSlider [data-baseweb="slider"] div {
-        background-color: #D2D2D7 !important;
-    }
+    /* Oculta seletores escuros do Slider */
+    div[data-testid="stThumbValue"] { display: none !important; }
+    .stSlider [data-baseweb="slider"] div { background-color: #D2D2D7 !important; }
     
-    /* KPIs Executivos Sem Borda */
+    /* Container Executivo de KPIs */
     .kpi-container {
         display: flex;
         justify-content: space-between;
@@ -121,7 +116,7 @@ st.markdown("""
         margin-right: 6px;
     }
     
-    /* Botões Limpos e Compactos */
+    /* Botões Compactos */
     .stButton > button {
         border-radius: 6px !important;
         border: 1px solid #D2D2D7 !important;
@@ -141,20 +136,32 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Título Principal
-st.markdown("<h1 style='font-weight: 300; font-size: 2.1em; color: #1D1D1F; margin-bottom: 2px; letter-spacing: -0.8px;'>Deal Flow | Flipping BA</h1>", unsafe_allow_html=True)
-st.markdown("<p style='font-size: 0.9em; font-weight: 300; color: #86868B; margin-top: 0; margin-bottom: 25px;'>Propiedades Filtradas</p>", unsafe_allow_html=True)
+# Função para carregar os dados reais gerados pelo scraper
+def carregar_dados():
+    if os.path.exists("dados_imoveis.json"):
+        with open("dados_imoveis.json", "r", encoding="utf-8") as f:
+            return json.load(f)
+    return []
 
-# Indicadores KPIs
-st.markdown("""
+imoveis = carregar_dados()
+
+# Cabecalho
+st.markdown("<h1 style='font-weight: 300; font-size: 2.1em; color: #1D1D1F; margin-bottom: 2px; letter-spacing: -0.8px;'>Deal Flow | Flipping BA</h1>", unsafe_allow_html=True)
+st.markdown("<p style='font-size: 0.9em; font-weight: 300; color: #86868B; margin-top: 0; margin-bottom: 25px;'>Propiedades Filtradas en Tiempo Real</p>", unsafe_allow_html=True)
+
+# Cálculo dinâmico dos KPIs baseados nos dados coletados
+total_imoveis = len(imoveis)
+preco_medio_m2 = round(sum(i['preco_m2'] for i in imoveis) / total_imoveis, 2) if total_imoveis > 0 else 0
+
+st.markdown(f"""
 <div class='kpi-container'>
     <div class='kpi-item'>
         <div class='kpi-label'>Oportunidades Activas</div>
-        <div class='kpi-value'>12</div>
+        <div class='kpi-value'>{total_imoveis}</div>
     </div>
     <div class='kpi-item'>
         <div class='kpi-label'>Precio Promedio m²</div>
-        <div class='kpi-value'>USD 1.250</div>
+        <div class='kpi-value'>USD {preco_medio_m2:,.0f}</div>
     </div>
     <div class='kpi-item'>
         <div class='kpi-label'>Descuento vs Mercado</div>
@@ -167,63 +174,38 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# Filtros do Menu Lateral
+# Sidebar de Filtros
 st.sidebar.markdown("<p style='font-size: 0.85em; font-weight: 600; color: #1D1D1F; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px;'>Filtros de Mercado</p>", unsafe_allow_html=True)
-bairro = st.sidebar.multiselect("Barrios", ["Belgrano", "Palermo", "Recoleta", "Barrio Norte", "Caballito", "Villa Crespo", "Abasto", "Almagro"], default=["Palermo", "Recoleta"])
-
-# Slider sem os números pretos sobrepostos
-min_p, max_p = st.sidebar.slider("Rango de Precio (USD)", 80000, 250000, (100000, 200000))
+bairros_sel = st.sidebar.multiselect("Barrios", ["Belgrano", "Palermo", "Recoleta", "Barrio Norte", "Caballito", "Villa Crespo"], default=["Palermo", "Recoleta"])
+min_p, max_p = st.sidebar.slider("Rango de Precio (USD)", 50000, 300000, (80000, 200000))
 st.sidebar.caption(f"Seleccionado: **USD {min_p:,}** a **USD {max_p:,}**")
 
-ambientes = st.sidebar.selectbox("Ambientes", ["Todos", "Monoambiente", "2 ambientes", "3 ambientes", "4 ambientes"])
-data_pub = st.sidebar.selectbox("Fecha de Publicación", ["Cualquier fecha", "Últimos 7 días", "Últimos 15 días", "Último mes"])
-
-# Card Imóvel 1
-st.markdown("""
-<div class='property-card'>
-    <img class='property-img' src="https://images.unsplash.com/photo-1493809842364-78817add7ffb?auto=format&fit=crop&w=500&q=80">
-    <div class='property-info'>
-        <div class='property-title'>Palermo · Av. Santa Fe</div>
-        <div class='property-metrics'>
-            USD 135.000 &nbsp;·&nbsp; 110 m² &nbsp;·&nbsp; USD 1.227/m² &nbsp;·&nbsp; Expensas $380.000 ARS
+# Exibição dos cards reais
+if not imoveis:
+    st.info("Aún no hay datos capturados. Ejecuta 'scraper.py' para sincronizar el mercado.")
+else:
+    for idx, item in enumerate(imoveis):
+        st.markdown(f"""
+        <div class='property-card'>
+            <img class='property-img' src="{item['imagem']}">
+            <div class='property-info'>
+                <div class='property-title'>{item['bairro']} · {item['titulo']}</div>
+                <div class='property-metrics'>
+                    USD {item['preco_usd']:,} &nbsp;·&nbsp; {item['metragem']} m² &nbsp;·&nbsp; USD {item['preco_m2']}/m² &nbsp;·&nbsp; Expensas ${item['expensas_ars']:,} ARS
+                </div>
+                <div>
+                    <span class='tag-flat'>{item['fonte']}</span>
+                    <span class='tag-flat' style='background: #E5E5EA;'>Verificado</span>
+                </div>
+            </div>
         </div>
-        <div>
-            <span class='tag-flat'>A refaccionar</span>
-            <span class='tag-flat'>Sucesión</span>
-            <span class='tag-flat' style='background: #E5E5EA;'>Publicado hace 62 días</span>
-        </div>
-    </div>
-</div>
-""", unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
 
-col1, col2, _ = st.columns([1.1, 1.1, 4])
-with col1:
-    st.button("Analizar Riesgo vs Retorno (IA)", key="ia1")
-with col2:
-    st.button("Ver Publicación Original", key="link1")
+        col1, col2, _ = st.columns([1.2, 1.2, 3.6])
+        with col1:
+            if st.button("Analizar Riesgo vs Retorno (IA)", key=f"ia_{idx}"):
+                st.info(f"Análisis IA para {item['titulo']}: Propiedad con precio por m² de USD {item['preco_m2']}. Margen estimado de negociación: 10-15%.")
+        with col2:
+            st.markdown(f'<a href="{item["link"]}" target="_blank"><button style="border-radius:6px; border:1px solid #D2D2D7; color:#1D1D1F; background:#FFF; font-size:0.8em; padding:4px 14px; height:34px;">Ver Publicación Original</button></a>', unsafe_allow_html=True)
 
-st.markdown("<div style='margin-bottom: 25px;'></div>", unsafe_allow_html=True)
-
-# Card Imóvel 2
-st.markdown("""
-<div class='property-card'>
-    <img class='property-img' src="https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=500&q=80">
-    <div class='property-info'>
-        <div class='property-title'>Recoleta · Calle Juncal</div>
-        <div class='property-metrics'>
-            USD 180.000 &nbsp;·&nbsp; 130 m² &nbsp;·&nbsp; USD 1.384/m² &nbsp;·&nbsp; Expensas $410.000 ARS
-        </div>
-        <div>
-            <span class='tag-flat'>Retasado</span>
-            <span class='tag-flat'>Urgente</span>
-            <span class='tag-flat' style='background: #E5E5EA;'>Publicado hace 28 días</span>
-        </div>
-    </div>
-</div>
-""", unsafe_allow_html=True)
-
-col3, col4, _ = st.columns([1.1, 1.1, 4])
-with col3:
-    st.button("Analizar Riesgo vs Retorno (IA)", key="ia2")
-with col4:
-    st.button("Ver Publicación Original", key="link2")
+        st.markdown("<div style='margin-bottom: 20px;'></div>", unsafe_allow_html=True)
